@@ -44,6 +44,9 @@ class Auth:
         model=None,
         session_auth_redirect=None,
         session_auth_redirect_bp=None,
+        session_auth_flash=None,
+        session_login_redirect=None,
+        session_login_flash=None,
         access_expires=3600,
         refresh_expires=604800,
         refresh_cookie=False,
@@ -57,6 +60,9 @@ class Auth:
         self.jwt_key = jwt_key
         self.session_auth_redirect = session_auth_redirect
         self.session_auth_redirect_bp = session_auth_redirect_bp or {}
+        self.session_auth_flash = session_auth_flash
+        self.session_login_redirect = session_login_redirect
+        self.session_login_flash = session_login_flash
         self.access_expires = access_expires
         self.refresh_expires = refresh_expires
         self.refresh_cookie = refresh_cookie
@@ -88,6 +94,9 @@ class Auth:
                 model=model,
                 session_auth_redirect=session_auth_redirect,
                 session_auth_redirect_bp=session_auth_redirect_bp,
+                session_auth_flash=session_auth_flash,
+                session_login_redirect=session_login_redirect,
+                session_login_flash=session_login_flash,
                 access_expires=access_expires,
                 refresh_expires=refresh_expires,
                 refresh_cookie=refresh_cookie,
@@ -117,6 +126,9 @@ class Auth:
         model=None,
         session_auth_redirect=None,
         session_auth_redirect_bp=None,
+        session_auth_flash=None,
+        session_login_redirect=None,
+        session_login_flash=None,
         access_expires=None,
         refresh_expires=None,
         refresh_cookie=None,
@@ -144,6 +156,21 @@ class Auth:
             session_auth_redirect_bp
             if session_auth_redirect_bp is not None
             else app.config.get("AUTH_SESSION_REDIRECT_BP", self.session_auth_redirect_bp)
+        )
+        self.session_auth_flash = (
+            session_auth_flash
+            if session_auth_flash is not None
+            else app.config.get("AUTH_SESSION_AUTH_FLASH", self.session_auth_flash)
+        )
+        self.session_login_redirect = (
+            session_login_redirect
+            if session_login_redirect is not None
+            else app.config.get("AUTH_SESSION_LOGIN_REDIRECT", self.session_login_redirect)
+        )
+        self.session_login_flash = (
+            session_login_flash
+            if session_login_flash is not None
+            else app.config.get("AUTH_SESSION_LOGIN_FLASH", self.session_login_flash)
         )
         self.access_expires = (
             access_expires
@@ -284,21 +311,39 @@ class Auth:
         except Exception:
             return target
 
+    def _do_flash(self, flash_config, default_msg="Authentication required.", default_cat="warning"):
+        if not flash_config:
+            return
+        from flask import flash
+        if isinstance(flash_config, dict):
+            flash(
+                flash_config.get("message", default_msg),
+                flash_config.get("category", default_cat),
+            )
+        elif isinstance(flash_config, (list, tuple)):
+            flash(flash_config[0], flash_config[1] if len(flash_config) > 1 else default_cat)
+        elif isinstance(flash_config, str):
+            flash(flash_config, default_cat)
+        elif flash_config is True:
+            flash(default_msg, default_cat)
+
     def _handle_unauthorized_session(self):
         current_bp = request.blueprint
+        target = None
 
         # 1. Blueprint-specific redirect
         if current_bp and current_bp in self.session_auth_redirect_bp:
             target = self.session_auth_redirect_bp[current_bp]
+        elif isinstance(self.session_auth_redirect, dict):
+            target = self.session_auth_redirect.get(current_bp) or self.session_auth_redirect.get("default")
+        elif isinstance(self.session_auth_redirect, str):
+            target = self.session_auth_redirect
+
+        if target:
             resolved = self._resolve_redirect(target)
             if resolved:
+                self._do_flash(self.session_auth_flash, "Authentication required.", "warning")
                 return redirect(resolved)
 
-        # 2. Global session redirect
-        if self.session_auth_redirect:
-            resolved = self._resolve_redirect(self.session_auth_redirect)
-            if resolved:
-                return redirect(resolved)
-
-        # 3. Default JSON response
+        # 2. Default JSON response
         return jsonify({"error": "Unauthorized", "message": "Authentication required."}), 401

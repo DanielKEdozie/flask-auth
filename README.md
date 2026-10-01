@@ -77,8 +77,11 @@ You can configure `flask-auth` using standard `app.config` variables:
 | `AUTH_COOKIE_SECURE` | `False` | Send cookie over HTTPS only |
 | `AUTH_COOKIE_HTTPONLY` | `True` | Disallow JavaScript access to cookie |
 | `AUTH_COOKIE_SAMESITE` | `"Lax"` | SameSite cookie policy (`"Lax"`, `"Strict"`, `"None"`) |
-| `AUTH_SESSION_REDIRECT` | `None` | Default redirect target for unauthorized session requests |
-| `AUTH_SESSION_REDIRECT_BP` | `{}` | Blueprint-to-redirect mapping, e.g. `{"admin": "/admin/login"}` |
+| `AUTH_SESSION_REDIRECT` | `None` | Redirect target for unauthorized session requests (single path or blueprint dict) |
+| `AUTH_SESSION_REDIRECT_BP` | `{}` | Blueprint-to-redirect mapping for unauthorized session requests |
+| `AUTH_SESSION_AUTH_FLASH` | `None` | Flash notification when unauthorized session redirect triggers (e.g. `{"message": "Please log in", "category": "warning"}`) |
+| `AUTH_SESSION_LOGIN_REDIRECT` | `None` | Post-login redirect target (single path or blueprint dict like `{"admin": "/admin", "default": "/"}`) |
+| `AUTH_SESSION_LOGIN_FLASH` | `None` | Flash notification upon successful session login (e.g. `{"message": "Welcome back!", "category": "success"}`) |
 | `AUTH_BP_PREFIX` | `"/auth"` | URL prefix for built-in authentication routes |
 | `AUTH_REGISTER_ROUTES` | `True` | Set to `False` to disable built-in routes |
 

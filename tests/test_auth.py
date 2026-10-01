@@ -107,7 +107,57 @@ def test_auth_config_variables():
     print("ALL CONFIG TESTS PASSED!")
 
 
+def test_session_login_redirect_and_flash():
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "super-secret"
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+    app.config["TESTING"] = True
+
+    db = SQLAlchemy(app)
+
+    class User(UserMixin, db.Model):
+        __tablename__ = "users_test2"
+        name = db.Column(db.String(50))
+
+    with app.app_context():
+        db.create_all()
+        user = User(email="redirect_user@example.com", name="Redirect User")
+        user.set_password("pass123")
+        db.session.add(user)
+        db.session.commit()
+
+    # 1. Test single string redirect + flash
+    auth = Auth()
+    auth.init_app(
+        app,
+        model=User,
+        session_login_redirect="/dashboard",
+        session_login_flash={"message": "Welcome back!", "category": "success"},
+    )
+
+    client = app.test_client()
+    res = client.post("/auth/session", json={"email": "redirect_user@example.com", "password": "pass123"})
+    assert res.status_code == 302
+    assert "/dashboard" in res.headers["Location"]
+
+    # 2. Test blueprint dictionary redirect
+    auth.session_login_redirect = {"admin": "/admin/dashboard", "default": "/user/home"}
+
+    # With blueprint in json body
+    res = client.post("/auth/session", json={"email": "redirect_user@example.com", "password": "pass123", "blueprint": "admin"})
+    assert res.status_code == 302
+    assert "/admin/dashboard" in res.headers["Location"]
+
+    # With default
+    res = client.post("/auth/session", json={"email": "redirect_user@example.com", "password": "pass123"})
+    assert res.status_code == 302
+    assert "/user/home" in res.headers["Location"]
+
+    print("ALL SESSION REDIRECT & FLASH TESTS PASSED!")
+
+
 if __name__ == "__main__":
     test_auth_workflow()
     test_auth_config_variables()
+    test_session_login_redirect_and_flash()
 
