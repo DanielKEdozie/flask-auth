@@ -84,6 +84,26 @@ You can configure `flask-auth` using standard `app.config` variables:
 - `POST /auth/session`: Body `{ "email": "...", "password": "..." }` -> Returns `{ message: "Logged in successfully.", user }` (200) or 401.
 - `DELETE /auth/session`: Clears session -> Returns `{ message: "Logged out successfully." }` (200).
 
+## CLI Commands
+
+Flask-Auth registers user management commands with the `flask` CLI:
+
+```bash
+# Create a standard user (interactive prompts for password if omitted)
+flask auth create --email user@example.com --password secret
+
+# Create an administrator
+flask auth create --email admin@example.com --password secret --admin
+
+# Update or reset user password
+flask auth set-password --email user@example.com --password newsecret
+flask auth reset-password --email user@example.com --password newsecret
+
+# Delete a user
+flask auth delete --email user@example.com
+flask auth delete --email user@example.com --yes
+```
+
 ## License
 
 MIT

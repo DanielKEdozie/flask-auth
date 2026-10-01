@@ -229,6 +229,10 @@ class Auth:
             bp = create_auth_blueprint(self)
             app.register_blueprint(bp, url_prefix=self.bp_prefix)
 
+        # 4. Register CLI commands
+        from .cli import create_auth_cli
+        app.cli.add_command(create_auth_cli(self))
+
     def load_user(self, user_id):
         if self._user_loader_callback:
             return self._user_loader_callback(user_id)
