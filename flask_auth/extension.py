@@ -62,6 +62,10 @@ class Auth:
         self.bp_prefix = bp_prefix
         self.register_routes = register_routes
 
+        self.cookie_secure = False
+        self.cookie_httponly = True
+        self.cookie_samesite = "Lax"
+
         # Underlying extensions
         self.login_manager = LoginManager()
         self.http_auth = HTTPTokenAuth(scheme="Bearer")
@@ -119,27 +123,65 @@ class Auth:
     ):
         self.app = app
 
+        # Model
         if model is not None:
             self.model = model
-        if session_auth_redirect is not None:
-            self.session_auth_redirect = session_auth_redirect
-        if session_auth_redirect_bp is not None:
-            self.session_auth_redirect_bp = session_auth_redirect_bp
-        if access_expires is not None:
-            self.access_expires = access_expires
-        if refresh_expires is not None:
-            self.refresh_expires = refresh_expires
-        if refresh_cookie is not None:
-            self.refresh_cookie = refresh_cookie
-        if cookie_name is not None:
-            self.cookie_name = cookie_name
-        if bp_prefix is not None:
-            self.bp_prefix = bp_prefix
-        if register_routes is not None:
-            self.register_routes = register_routes
+
+        # Fallbacks to app.config keys if parameter is not explicitly passed
+        self.session_auth_redirect = (
+            session_auth_redirect
+            if session_auth_redirect is not None
+            else app.config.get("AUTH_SESSION_REDIRECT", self.session_auth_redirect)
+        )
+        self.session_auth_redirect_bp = (
+            session_auth_redirect_bp
+            if session_auth_redirect_bp is not None
+            else app.config.get("AUTH_SESSION_REDIRECT_BP", self.session_auth_redirect_bp)
+        )
+        self.access_expires = (
+            access_expires
+            if access_expires is not None
+            else app.config.get("AUTH_ACCESS_EXPIRES", self.access_expires)
+        )
+        self.refresh_expires = (
+            refresh_expires
+            if refresh_expires is not None
+            else app.config.get("AUTH_REFRESH_EXPIRES", self.refresh_expires)
+        )
+        self.refresh_cookie = (
+            refresh_cookie
+            if refresh_cookie is not None
+            else app.config.get("AUTH_REFRESH_COOKIE", self.refresh_cookie)
+        )
+        self.cookie_name = (
+            cookie_name
+            if cookie_name is not None
+            else app.config.get("AUTH_COOKIE_NAME", self.cookie_name)
+        )
+        self.cookie_secure = app.config.get("AUTH_COOKIE_SECURE", self.cookie_secure)
+        self.cookie_httponly = app.config.get("AUTH_COOKIE_HTTPONLY", self.cookie_httponly)
+        self.cookie_samesite = app.config.get("AUTH_COOKIE_SAMESITE", self.cookie_samesite)
+
+        self.bp_prefix = (
+            bp_prefix
+            if bp_prefix is not None
+            else app.config.get("AUTH_BP_PREFIX", self.bp_prefix)
+        )
+        self.register_routes = (
+            register_routes
+            if register_routes is not None
+            else app.config.get("AUTH_REGISTER_ROUTES", self.register_routes)
+        )
+
+        secret_key = (
+            app.config.get("AUTH_SECRET_KEY")
+            or app.config.get("SECRET_KEY", "flask-auth-secret")
+        )
+        algorithm = app.config.get("AUTH_ALGORITHM", "HS256")
 
         self.token_manager = TokenManager(
-            secret_key=app.config.get("SECRET_KEY", "flask-auth-secret"),
+            secret_key=secret_key,
+            algorithm=algorithm,
             access_expires=self.access_expires,
             refresh_expires=self.refresh_expires,
         )

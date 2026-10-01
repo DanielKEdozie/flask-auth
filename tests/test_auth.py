@@ -82,8 +82,30 @@ def test_auth_workflow():
     res = client.get("/session/protected")
     assert res.status_code == 302
     assert "/login" in res.headers["Location"]
-    print("ALL TESTS PASSED!")
+    print("ALL WORKFLOW TESTS PASSED!")
+
+
+def test_auth_config_variables():
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "super-secret"
+    app.config["AUTH_ACCESS_EXPIRES"] = 1800
+    app.config["AUTH_REFRESH_EXPIRES"] = 7200
+    app.config["AUTH_COOKIE_NAME"] = "my_refresh_cookie"
+    app.config["AUTH_SESSION_REDIRECT"] = "/custom-login"
+    app.config["AUTH_SESSION_REDIRECT_BP"] = {"admin": "/custom-admin-login"}
+
+    auth = Auth()
+    auth.init_app(app)
+
+    assert auth.access_expires == 1800
+    assert auth.refresh_expires == 7200
+    assert auth.cookie_name == "my_refresh_cookie"
+    assert auth.session_auth_redirect == "/custom-login"
+    assert auth.session_auth_redirect_bp == {"admin": "/custom-admin-login"}
+    print("ALL CONFIG TESTS PASSED!")
 
 
 if __name__ == "__main__":
     test_auth_workflow()
+    test_auth_config_variables()
+

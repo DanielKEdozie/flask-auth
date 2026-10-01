@@ -61,6 +61,26 @@ def dashboard():
     return f"Welcome {current_user.email}"
 ```
 
+## Configuration
+
+You can configure `flask-auth` using standard `app.config` variables:
+
+| Setting | Default | Description |
+|---|---|---|
+| `AUTH_SECRET_KEY` | `SECRET_KEY` | Secret key used for signing JWT tokens |
+| `AUTH_ALGORITHM` | `"HS256"` | JWT algorithm |
+| `AUTH_ACCESS_EXPIRES` | `3600` | Access token lifespan in seconds |
+| `AUTH_REFRESH_EXPIRES` | `604800` | Refresh token lifespan in seconds (7 days) |
+| `AUTH_REFRESH_COOKIE` | `False` | Whether to send refresh token in an HttpOnly cookie |
+| `AUTH_COOKIE_NAME` | `"refresh_token"` | Name of the refresh cookie |
+| `AUTH_COOKIE_SECURE` | `False` | Send cookie over HTTPS only |
+| `AUTH_COOKIE_HTTPONLY` | `True` | Disallow JavaScript access to cookie |
+| `AUTH_COOKIE_SAMESITE` | `"Lax"` | SameSite cookie policy (`"Lax"`, `"Strict"`, `"None"`) |
+| `AUTH_SESSION_REDIRECT` | `None` | Default redirect target for unauthorized session requests |
+| `AUTH_SESSION_REDIRECT_BP` | `{}` | Blueprint-to-redirect mapping, e.g. `{"admin": "/admin/login"}` |
+| `AUTH_BP_PREFIX` | `"/auth"` | URL prefix for built-in authentication routes |
+| `AUTH_REGISTER_ROUTES` | `True` | Set to `False` to disable built-in routes |
+
 ## Built-in Endpoints
 
 - `POST /auth/token`: Body `{ "email": "...", "password": "..." }` -> Returns `{ access_token, refresh_token, ... }`.

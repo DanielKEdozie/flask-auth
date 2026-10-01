@@ -38,9 +38,9 @@ def create_auth_blueprint(auth):
                 auth.cookie_name,
                 refresh_token,
                 max_age=auth.refresh_expires,
-                httponly=True,
-                samesite="Lax",
-                secure=False,  # Can be configured or auto-detected in production
+                httponly=auth.cookie_httponly,
+                samesite=auth.cookie_samesite,
+                secure=auth.cookie_secure,
             )
 
         return resp
