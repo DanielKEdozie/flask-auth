@@ -28,8 +28,7 @@ def create_auth_cli(auth):
     @click.option("--email", prompt=True, help="User email address.")
     @click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True, help="User password.")
     @click.option("--admin", is_flag=True, default=False, help="Grant admin privileges.")
-    @click.option("--name", default=None, help="User display name.")
-    def create_user_cmd(email, password, admin, name):
+    def create_user_cmd(email, password, admin):
         """Create a new user."""
         model = auth.model
         if not model:
@@ -43,11 +42,6 @@ def create_auth_cli(auth):
             return
 
         kwargs = {"email": email}
-        if name and hasattr(model, "name"):
-            kwargs["name"] = name
-        elif hasattr(model, "name"):
-            kwargs["name"] = email.split("@")[0]
-
         if hasattr(model, "is_admin"):
             kwargs["is_admin"] = admin
 
