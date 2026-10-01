@@ -88,6 +88,7 @@ def test_auth_workflow():
 def test_auth_config_variables():
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "super-secret"
+    app.config["AUTH_JWT_KEY"] = "my-special-jwt-key"
     app.config["AUTH_ACCESS_EXPIRES"] = 1800
     app.config["AUTH_REFRESH_EXPIRES"] = 7200
     app.config["AUTH_COOKIE_NAME"] = "my_refresh_cookie"
@@ -97,6 +98,7 @@ def test_auth_config_variables():
     auth = Auth()
     auth.init_app(app)
 
+    assert auth.token_manager._get_secret_key() == "my-special-jwt-key"
     assert auth.access_expires == 1800
     assert auth.refresh_expires == 7200
     assert auth.cookie_name == "my_refresh_cookie"

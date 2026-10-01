@@ -50,9 +50,11 @@ class Auth:
         cookie_name="refresh_token",
         bp_prefix="/auth",
         register_routes=True,
+        jwt_key=None,
     ):
         self.app = None
         self.model = model
+        self.jwt_key = jwt_key
         self.session_auth_redirect = session_auth_redirect
         self.session_auth_redirect_bp = session_auth_redirect_bp or {}
         self.access_expires = access_expires
@@ -92,6 +94,7 @@ class Auth:
                 cookie_name=cookie_name,
                 bp_prefix=bp_prefix,
                 register_routes=register_routes,
+                jwt_key=jwt_key,
             )
 
     @property
@@ -120,12 +123,16 @@ class Auth:
         cookie_name=None,
         bp_prefix=None,
         register_routes=None,
+        jwt_key=None,
     ):
         self.app = app
 
         # Model
         if model is not None:
             self.model = model
+
+        if jwt_key is not None:
+            self.jwt_key = jwt_key
 
         # Fallbacks to app.config keys if parameter is not explicitly passed
         self.session_auth_redirect = (
@@ -174,7 +181,9 @@ class Auth:
         )
 
         secret_key = (
-            app.config.get("AUTH_SECRET_KEY")
+            self.jwt_key
+            or app.config.get("AUTH_JWT_KEY")
+            or app.config.get("AUTH_SECRET_KEY")
             or app.config.get("SECRET_KEY", "flask-auth-secret")
         )
         algorithm = app.config.get("AUTH_ALGORITHM", "HS256")

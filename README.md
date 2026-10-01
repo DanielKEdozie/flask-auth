@@ -67,7 +67,8 @@ You can configure `flask-auth` using standard `app.config` variables:
 
 | Setting | Default | Description |
 |---|---|---|
-| `AUTH_SECRET_KEY` | `SECRET_KEY` | Secret key used for signing JWT tokens |
+| `AUTH_JWT_KEY` | `None` (falls back to `AUTH_SECRET_KEY` / `SECRET_KEY`) | Dedicated secret key used for signing JWT tokens |
+| `AUTH_SECRET_KEY` | `SECRET_KEY` | Secret key used for signing JWT tokens (if `AUTH_JWT_KEY` not set) |
 | `AUTH_ALGORITHM` | `"HS256"` | JWT algorithm |
 | `AUTH_ACCESS_EXPIRES` | `3600` | Access token lifespan in seconds |
 | `AUTH_REFRESH_EXPIRES` | `604800` | Refresh token lifespan in seconds (7 days) |
