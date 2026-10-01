@@ -2,8 +2,6 @@ from flask import (
     Flask,
     request,
     g,
-    redirect,
-    url_for,
     jsonify,
     has_request_context,
 )
@@ -42,15 +40,13 @@ class Auth:
         self,
         app=None,
         model=None,
-        session_auth_redirect=None,
-        session_auth_redirect_bp=None,
-        session_auth_flash=None,
-        session_login_redirect=None,
-        session_login_flash=None,
         access_expires=3600,
         refresh_expires=604800,
         refresh_cookie=False,
         cookie_name="refresh_token",
+        cookie_secure=False,
+        cookie_httponly=True,
+        cookie_samesite="Lax",
         bp_prefix="/auth",
         register_routes=True,
         jwt_key=None,
@@ -58,21 +54,15 @@ class Auth:
         self.app = None
         self.model = model
         self.jwt_key = jwt_key
-        self.session_auth_redirect = session_auth_redirect
-        self.session_auth_redirect_bp = session_auth_redirect_bp or {}
-        self.session_auth_flash = session_auth_flash
-        self.session_login_redirect = session_login_redirect
-        self.session_login_flash = session_login_flash
         self.access_expires = access_expires
         self.refresh_expires = refresh_expires
         self.refresh_cookie = refresh_cookie
         self.cookie_name = cookie_name
+        self.cookie_secure = cookie_secure
+        self.cookie_httponly = cookie_httponly
+        self.cookie_samesite = cookie_samesite
         self.bp_prefix = bp_prefix
         self.register_routes = register_routes
-
-        self.cookie_secure = False
-        self.cookie_httponly = True
-        self.cookie_samesite = "Lax"
 
         # Underlying extensions
         self.login_manager = LoginManager()
@@ -92,15 +82,13 @@ class Auth:
             self.init_app(
                 app,
                 model=model,
-                session_auth_redirect=session_auth_redirect,
-                session_auth_redirect_bp=session_auth_redirect_bp,
-                session_auth_flash=session_auth_flash,
-                session_login_redirect=session_login_redirect,
-                session_login_flash=session_login_flash,
                 access_expires=access_expires,
                 refresh_expires=refresh_expires,
                 refresh_cookie=refresh_cookie,
                 cookie_name=cookie_name,
+                cookie_secure=cookie_secure,
+                cookie_httponly=cookie_httponly,
+                cookie_samesite=cookie_samesite,
                 bp_prefix=bp_prefix,
                 register_routes=register_routes,
                 jwt_key=jwt_key,
@@ -124,54 +112,26 @@ class Auth:
         self,
         app: Flask,
         model=None,
-        session_auth_redirect=None,
-        session_auth_redirect_bp=None,
-        session_auth_flash=None,
-        session_login_redirect=None,
-        session_login_flash=None,
         access_expires=None,
         refresh_expires=None,
         refresh_cookie=None,
         cookie_name=None,
+        cookie_secure=None,
+        cookie_httponly=None,
+        cookie_samesite=None,
         bp_prefix=None,
         register_routes=None,
         jwt_key=None,
     ):
         self.app = app
 
-        # Model
         if model is not None:
             self.model = model
 
         if jwt_key is not None:
             self.jwt_key = jwt_key
 
-        # Fallbacks to app.config keys if parameter is not explicitly passed
-        self.session_auth_redirect = (
-            session_auth_redirect
-            if session_auth_redirect is not None
-            else app.config.get("AUTH_SESSION_REDIRECT", self.session_auth_redirect)
-        )
-        self.session_auth_redirect_bp = (
-            session_auth_redirect_bp
-            if session_auth_redirect_bp is not None
-            else app.config.get("AUTH_SESSION_REDIRECT_BP", self.session_auth_redirect_bp)
-        )
-        self.session_auth_flash = (
-            session_auth_flash
-            if session_auth_flash is not None
-            else app.config.get("AUTH_SESSION_AUTH_FLASH", self.session_auth_flash)
-        )
-        self.session_login_redirect = (
-            session_login_redirect
-            if session_login_redirect is not None
-            else app.config.get("AUTH_SESSION_LOGIN_REDIRECT", self.session_login_redirect)
-        )
-        self.session_login_flash = (
-            session_login_flash
-            if session_login_flash is not None
-            else app.config.get("AUTH_SESSION_LOGIN_FLASH", self.session_login_flash)
-        )
+        # Configuration fallbacks
         self.access_expires = (
             access_expires
             if access_expires is not None
@@ -192,9 +152,21 @@ class Auth:
             if cookie_name is not None
             else app.config.get("AUTH_COOKIE_NAME", self.cookie_name)
         )
-        self.cookie_secure = app.config.get("AUTH_COOKIE_SECURE", self.cookie_secure)
-        self.cookie_httponly = app.config.get("AUTH_COOKIE_HTTPONLY", self.cookie_httponly)
-        self.cookie_samesite = app.config.get("AUTH_COOKIE_SAMESITE", self.cookie_samesite)
+        self.cookie_secure = (
+            cookie_secure
+            if cookie_secure is not None
+            else app.config.get("AUTH_COOKIE_SECURE", self.cookie_secure)
+        )
+        self.cookie_httponly = (
+            cookie_httponly
+            if cookie_httponly is not None
+            else app.config.get("AUTH_COOKIE_HTTPONLY", self.cookie_httponly)
+        )
+        self.cookie_samesite = (
+            cookie_samesite
+            if cookie_samesite is not None
+            else app.config.get("AUTH_COOKIE_SAMESITE", self.cookie_samesite)
+        )
 
         self.bp_prefix = (
             bp_prefix
@@ -222,10 +194,13 @@ class Auth:
             refresh_expires=self.refresh_expires,
         )
 
-        # 1. Initialize Flask-Login
+        # 1. Initialize Flask-Login (Always returns 401 JSON when unauthorized)
         self.login_manager.init_app(app)
         self.login_manager.user_loader(self.load_user)
-        self.login_manager.unauthorized_handler(self._handle_unauthorized_session)
+
+        @self.login_manager.unauthorized_handler
+        def _handle_unauthorized():
+            return jsonify({"error": "Unauthorized", "message": "Authentication required."}), 401
 
         # 2. Initialize Flask-HTTPAuth
         @self.http_auth.verify_token
@@ -300,50 +275,3 @@ class Auth:
 
     def create_refresh_token(self, identity, extra_claims=None, expires_in=None):
         return self.token_manager.create_refresh_token(identity, extra_claims=extra_claims, expires_in=expires_in)
-
-    def _resolve_redirect(self, target):
-        if not target:
-            return None
-        if target.startswith("/") or target.startswith("http://") or target.startswith("https://"):
-            return target
-        try:
-            return url_for(target)
-        except Exception:
-            return target
-
-    def _do_flash(self, flash_config, default_msg="Authentication required.", default_cat="warning"):
-        if not flash_config:
-            return
-        from flask import flash
-        if isinstance(flash_config, dict):
-            flash(
-                flash_config.get("message", default_msg),
-                flash_config.get("category", default_cat),
-            )
-        elif isinstance(flash_config, (list, tuple)):
-            flash(flash_config[0], flash_config[1] if len(flash_config) > 1 else default_cat)
-        elif isinstance(flash_config, str):
-            flash(flash_config, default_cat)
-        elif flash_config is True:
-            flash(default_msg, default_cat)
-
-    def _handle_unauthorized_session(self):
-        current_bp = request.blueprint
-        target = None
-
-        # 1. Blueprint-specific redirect
-        if current_bp and current_bp in self.session_auth_redirect_bp:
-            target = self.session_auth_redirect_bp[current_bp]
-        elif isinstance(self.session_auth_redirect, dict):
-            target = self.session_auth_redirect.get(current_bp) or self.session_auth_redirect.get("default")
-        elif isinstance(self.session_auth_redirect, str):
-            target = self.session_auth_redirect
-
-        if target:
-            resolved = self._resolve_redirect(target)
-            if resolved:
-                self._do_flash(self.session_auth_flash, "Authentication required.", "warning")
-                return redirect(resolved)
-
-        # 2. Default JSON response
-        return jsonify({"error": "Unauthorized", "message": "Authentication required."}), 401

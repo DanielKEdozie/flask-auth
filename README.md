@@ -1,15 +1,15 @@
 # flask-auth
 
-A unified authentication extension for Flask that bridges **Flask-Login** (session-based authentication) and **Flask-HTTPAuth** (JWT token-based authentication).
+A clean, API-first authentication extension for Flask that bridges **Flask-Login** (session-based authentication) and **Flask-HTTPAuth** (JWT token-based authentication), returning consistent JSON responses across all auth flows.
 
 ## Features
 
 - **Dual-Mode Authentication**: Seamlessly support both Session and Token (Bearer JWT) authentication.
 - **Flask-Login Under the Hood**: Uses `LoginManager`, `login_user()`, `logout_user()`, and `login_required`.
 - **Flask-HTTPAuth Under the Hood**: Uses `HTTPTokenAuth` with `@auth.token_required`.
-- **Blueprint-Aware Redirection**: Configurable redirect targets per blueprint (`session_auth_redirect_bp`) with automatic fallback to global redirect or a 401 JSON response.
+- **Pure JSON Responses**: Clean and decoupled. Unauthorized requests return standard `401 Unauthorized` JSON so blueprints/frontends handle UI redirection and messaging based on HTTP status codes.
 - **Extensible `UserMixin`**: Preconfigured with SQLAlchemy columns (`id`, `email`, `password_hash`, `is_active`, `is_admin`) and password verification methods (`set_password`, `verify_password`).
-- **Unified `current_user`**: Context proxy resolving user whether authenticated via JWT or session.
+- **Unified `current_user`**: Context proxy resolving the active user whether authenticated via JWT or session.
 - **Built-in Endpoints**: Ready-to-use routes for `/auth/token`, `/auth/refresh-token`, and `/auth/session`.
 
 ## Installation
@@ -21,12 +21,13 @@ pip install git+https://github.com/DanielKEdozie/flask-auth.git
 ## Quick Start
 
 ```python
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_auth import Auth, UserMixin, current_user
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "your-secret-key"
+app.config["AUTH_JWT_KEY"] = "dedicated-jwt-secret-key"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
 
 db = SQLAlchemy(app)
@@ -39,26 +40,22 @@ auth = Auth()
 auth.init_app(
     app,
     model=User,
-    session_auth_redirect="/login",
-    session_auth_redirect_bp={
-        "admin": "/admin/login",
-    },
     access_expires=3600,
     refresh_expires=604800,
     refresh_cookie=True,
 )
 
-# API Route (Bearer Token)
+# Protected API route (Bearer JWT)
 @app.route("/api/profile")
 @auth.token_required
 def api_profile():
-    return {"user": current_user.to_dict()}
+    return jsonify({"user": current_user.to_dict()})
 
-# Web Route (Session Cookie)
-@app.route("/dashboard")
+# Protected Session route (Cookie)
+@app.route("/api/session/profile")
 @auth.login_required
-def dashboard():
-    return f"Welcome {current_user.email}"
+def session_profile():
+    return jsonify({"user": current_user.to_dict()})
 ```
 
 ## Configuration
@@ -77,20 +74,15 @@ You can configure `flask-auth` using standard `app.config` variables:
 | `AUTH_COOKIE_SECURE` | `False` | Send cookie over HTTPS only |
 | `AUTH_COOKIE_HTTPONLY` | `True` | Disallow JavaScript access to cookie |
 | `AUTH_COOKIE_SAMESITE` | `"Lax"` | SameSite cookie policy (`"Lax"`, `"Strict"`, `"None"`) |
-| `AUTH_SESSION_REDIRECT` | `None` | Redirect target for unauthorized session requests (single path or blueprint dict) |
-| `AUTH_SESSION_REDIRECT_BP` | `{}` | Blueprint-to-redirect mapping for unauthorized session requests |
-| `AUTH_SESSION_AUTH_FLASH` | `None` | Flash notification when unauthorized session redirect triggers (e.g. `{"message": "Please log in", "category": "warning"}`) |
-| `AUTH_SESSION_LOGIN_REDIRECT` | `None` | Post-login redirect target (single path or blueprint dict like `{"admin": "/admin", "default": "/"}`) |
-| `AUTH_SESSION_LOGIN_FLASH` | `None` | Flash notification upon successful session login (e.g. `{"message": "Welcome back!", "category": "success"}`) |
 | `AUTH_BP_PREFIX` | `"/auth"` | URL prefix for built-in authentication routes |
 | `AUTH_REGISTER_ROUTES` | `True` | Set to `False` to disable built-in routes |
 
 ## Built-in Endpoints
 
-- `POST /auth/token`: Body `{ "email": "...", "password": "..." }` -> Returns `{ access_token, refresh_token, ... }`.
-- `POST /auth/refresh-token`: Returns new access token.
-- `POST /auth/session`: Session login.
-- `DELETE /auth/session`: Session logout.
+- `POST /auth/token`: Body `{ "email": "...", "password": "..." }` -> Returns `{ access_token, refresh_token, token_type, expires_in, user }` (200) or 401.
+- `POST /auth/refresh-token`: Returns new access token `{ access_token, token_type, expires_in }` (200) or 401.
+- `POST /auth/session`: Body `{ "email": "...", "password": "..." }` -> Returns `{ message: "Logged in successfully.", user }` (200) or 401.
+- `DELETE /auth/session`: Clears session -> Returns `{ message: "Logged out successfully." }` (200).
 
 ## License
 

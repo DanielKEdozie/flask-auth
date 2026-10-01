@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, make_response, redirect
+from flask import Blueprint, request, jsonify, make_response
 
 
 def create_auth_blueprint(auth):
@@ -6,7 +6,7 @@ def create_auth_blueprint(auth):
 
     @bp.route("/token", methods=["POST"])
     def get_token():
-        data = request.get_json(silent=True) or request.form.to_dict()
+        data = request.get_json(silent=True) or request.form.to_dict() or {}
         identity = data.get("email") or data.get("identity") or data.get("username")
         password = data.get("password")
 
@@ -47,7 +47,7 @@ def create_auth_blueprint(auth):
 
     @bp.route("/refresh-token", methods=["POST"])
     def refresh_token_route():
-        data = request.get_json(silent=True) or request.form.to_dict()
+        data = request.get_json(silent=True) or request.form.to_dict() or {}
         refresh_token = (
             data.get("refresh_token")
             or request.cookies.get(auth.cookie_name)
@@ -87,24 +87,6 @@ def create_auth_blueprint(auth):
 
             auth.login_user(user, remember=remember)
             user_data = user.to_dict() if hasattr(user, "to_dict") else {"id": getattr(user, "id", None)}
-
-            # Check redirect: 1. next parameter, 2. session_login_redirect (dict or single path)
-            redirect_target = None
-            next_url = request.args.get("next") or data.get("next")
-            if next_url:
-                redirect_target = next_url
-            elif auth.session_login_redirect:
-                if isinstance(auth.session_login_redirect, dict):
-                    bp_key = data.get("blueprint") or request.args.get("blueprint") or request.blueprint
-                    redirect_target = auth.session_login_redirect.get(bp_key) or auth.session_login_redirect.get("default")
-                elif isinstance(auth.session_login_redirect, str):
-                    redirect_target = auth.session_login_redirect
-
-            if redirect_target:
-                resolved = auth._resolve_redirect(redirect_target)
-                if resolved:
-                    auth._do_flash(auth.session_login_flash, default_msg="Logged in successfully.", default_cat="success")
-                    return redirect(resolved)
 
             return jsonify({
                 "message": "Logged in successfully.",
