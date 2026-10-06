@@ -52,9 +52,12 @@ class UserMixin(FlaskLoginUserMixin):
         return check_password_hash(self.password_hash, plain_password)
 
     def to_dict(self):
-        return {
+        data = {
             "id": getattr(self, "id", None),
             "email": getattr(self, "email", None),
             "is_active": getattr(self, "is_active", True),
             "is_admin": getattr(self, "is_admin", False),
         }
+        if hasattr(self, "name") and getattr(self, "name", None) is not None:
+            data["name"] = getattr(self, "name")
+        return data

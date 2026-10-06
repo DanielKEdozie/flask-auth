@@ -1,3 +1,4 @@
+from typing import Optional
 from flask import (
     Flask,
     request,
@@ -7,9 +8,9 @@ from flask import (
 )
 from flask_login import (
     LoginManager,
+    login_required as flask_login_required,
     login_user as flask_login_user,
     logout_user as flask_logout_user,
-    login_required as flask_login_required,
     current_user as flask_login_current_user,
 )
 from flask_httpauth import HTTPTokenAuth
@@ -38,20 +39,23 @@ current_user = LocalProxy(_get_unified_current_user)
 class Auth:
     def __init__(
         self,
-        app=None,
+        app: Optional[Flask] = None,
         model=None,
-        access_expires=3600,
-        refresh_expires=604800,
-        refresh_cookie=False,
-        cookie_name="refresh_token",
-        cookie_secure=False,
-        cookie_httponly=True,
-        cookie_samesite="Lax",
-        bp_prefix="/auth",
-        register_routes=True,
+        access_expires: int = 3600,
+        refresh_expires: int = 604800,
+        refresh_cookie: bool = False,
+        cookie_name: str = "refresh_token",
+        cookie_secure: bool = False,
+        cookie_httponly: bool = True,
+        cookie_samesite: str = "Lax",
+        bp_prefix: str = "/auth",
+        register_routes: bool = True,
         jwt_key=None,
+        cli_extra_fields=None,
+        cli_required_fields=None,
+        cli_fields=None,
     ):
-        self.app = None
+        self.app = app
         self.model = model
         self.jwt_key = jwt_key
         self.access_expires = access_expires
@@ -63,6 +67,9 @@ class Auth:
         self.cookie_samesite = cookie_samesite
         self.bp_prefix = bp_prefix
         self.register_routes = register_routes
+        self.cli_extra_fields = cli_extra_fields or {}
+        self.cli_required_fields = cli_required_fields or []
+        self.cli_fields = cli_fields or []
 
         # Underlying extensions
         self.login_manager = LoginManager()
@@ -92,6 +99,9 @@ class Auth:
                 bp_prefix=bp_prefix,
                 register_routes=register_routes,
                 jwt_key=jwt_key,
+                cli_extra_fields=cli_extra_fields,
+                cli_required_fields=cli_required_fields,
+                cli_fields=cli_fields,
             )
 
     @property
@@ -122,6 +132,9 @@ class Auth:
         bp_prefix=None,
         register_routes=None,
         jwt_key=None,
+        cli_extra_fields=None,
+        cli_required_fields=None,
+        cli_fields=None,
     ):
         self.app = app
 
@@ -130,6 +143,22 @@ class Auth:
 
         if jwt_key is not None:
             self.jwt_key = jwt_key
+
+        self.cli_extra_fields = (
+            cli_extra_fields
+            if cli_extra_fields is not None
+            else app.config.get("AUTH_CLI_EXTRA_FIELDS", self.cli_extra_fields)
+        )
+        self.cli_required_fields = (
+            cli_required_fields
+            if cli_required_fields is not None
+            else app.config.get("AUTH_CLI_REQUIRED_FIELDS", self.cli_required_fields)
+        )
+        self.cli_fields = (
+            cli_fields
+            if cli_fields is not None
+            else app.config.get("AUTH_CLI_FIELDS", self.cli_fields)
+        )
 
         # Configuration fallbacks
         self.access_expires = (
